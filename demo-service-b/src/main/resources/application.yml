@@ -1,0 +1,15 @@
+server:
+  port: 18082
+
+spring:
+  application:
+    name: demo-service-b
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

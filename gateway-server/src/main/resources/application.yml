@@ -1,0 +1,79 @@
+server:
+  port: 18080
+
+spring:
+  application:
+    name: gateway-server
+  cloud:
+    gateway:
+      # Spring Cloud Gateway 5.x（2025.x）WebFlux 版本的属性前缀
+      server:
+        webflux:
+          routes:
+            - id: demo-service-a
+              uri: http://localhost:18081
+              predicates:
+                - Path=/service-a/**
+              filters:
+                - StripPrefix=1
+            - id: demo-service-b
+              uri: http://localhost:18082
+              predicates:
+                - Path=/service-b/**
+              filters:
+                - StripPrefix=1
+
+# 内嵌 Redis（jedis-mock）由 EnvironmentPostProcessor 启动后自动注入 host/port；
+# 如需使用外部 Redis，以 external profile 启动并在此填写地址：
+#   java -jar gateway-server.jar --spring.profiles.active=external
+spring.data.redis:
+  host: localhost
+  port: 6379
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.example.gateway: INFO
+    org.springframework.cloud.gateway: INFO
+
+# ============ 限流配置 ============
+# 令牌桶参数：capacity=桶容量(突发上限)，refill-tokens/refill-seconds=每 N 秒补充令牌数
+# 示例值偏严格，方便直接用 curl 观察 429；生产按需调大。
+app:
+  embedded-redis:
+    # 0 = 随机空闲端口；也可固定为 6379
+    port: 0
+  rate-limit:
+    enabled: true
+    # IP 白名单，支持单 IP 和 CIDR（如 10.0.0.0/8）；命中白名单跳过所有限流
+    ip-whitelist:
+      # - 127.0.0.1
+      # - 10.0.0.0/8
+    # 是否信任 X-Forwarded-For 取客户端 IP（生产环境置于受信反向代理后可开启）
+    trust-forward-header: false
+    # 全局限流：所有请求共享
+    global:
+      capacity: 20
+      refill-tokens: 10
+      refill-seconds: 1
+      expire-seconds: 120
+    # 接口限流：按 路由+路径 维度
+    api:
+      capacity: 10
+      refill-tokens: 5
+      refill-seconds: 1
+      expire-seconds: 120
+    # 用户限流：按请求头 X-User-Id 维度（未携带该头不做用户限流）
+    user:
+      capacity: 5
+      refill-tokens: 2
+      refill-seconds: 1
+      expire-seconds: 120
